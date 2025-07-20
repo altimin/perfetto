@@ -101,6 +101,7 @@ source_set("client_api_without_backends") {
     "platform.cc",
     "platform_posix.cc",
     "platform_windows.cc",
+    "synthetic_track_event_writer.cc",
     "traced_value.cc",
     "tracing.cc",
     "tracing_policy.cc",
@@ -147,7 +148,7 @@ perfetto_unittest_source_set("unittests") {
     "test:test_support",
   ]
 
-  sources = []
+  sources = [ "test/synthetic_track_event_writer_unittest.cc" ]
 
   # TODO(lalitm): this tests appear to be failing on Chromium for unknown
   # reasons. Figure out why and reenable them.

@@ -53,6 +53,13 @@ class PERFETTO_EXPORT_COMPONENT EventContext {
       bool /*filter_debug_annotations*/ = false)
       : event_(event), incremental_state_(incremental_state) {}
 
+  using TracePacketHandle =
+      ::protozero::MessageHandle<protos::pbzero::TracePacket>;
+
+  EventContext(TracePacketHandle,
+               internal::TrackEventIncrementalState*,
+               internal::TrackEventTlsState*);
+
   ~EventContext();
 
   internal::TrackEventIncrementalState* GetIncrementalState() const {
@@ -137,12 +144,6 @@ class PERFETTO_EXPORT_COMPONENT EventContext {
   friend class internal::TrackEventInternal;
   friend class TracedProtoTest;
 
-  using TracePacketHandle =
-      ::protozero::MessageHandle<protos::pbzero::TracePacket>;
-
-  EventContext(TracePacketHandle,
-               internal::TrackEventIncrementalState*,
-               internal::TrackEventTlsState*);
   EventContext(const EventContext&) = delete;
 
   protos::pbzero::DebugAnnotation* AddDebugAnnotation(const char* name);

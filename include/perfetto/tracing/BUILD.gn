@@ -56,6 +56,7 @@ source_set("tracing") {
     "locked_handle.h",
     "platform.h",
     "string_helpers.h",
+    "synthetic_track_event_writer.h",
     "trace_writer_base.h",
     "traced_proto.h",
     "traced_value.h",

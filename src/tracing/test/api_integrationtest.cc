@@ -55,6 +55,7 @@
 #include "perfetto/protozero/scattered_heap_buffer.h"
 #include "perfetto/tracing/core/data_source_descriptor.h"
 #include "perfetto/tracing/core/trace_config.h"
+#include "perfetto/tracing/synthetic_track_event_writer.h"
 
 // xxx.pbzero.h includes are for the writing path (the code that pretends to be
 // production code).
