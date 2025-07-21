@@ -35,6 +35,99 @@
 namespace perfetto {
 namespace {
 
+// Helper function to build packet descriptions from a parsed trace
+std::vector<std::string> GetPacketDescriptions(
+    const protos::gen::Trace& parsed_trace) {
+  std::vector<std::string> packet_descriptions;
+  std::map<uint64_t, std::string> interned_debug_annotation_names;
+
+  for (const auto& packet : parsed_trace.packet()) {
+    // Update interned data
+    if (packet.has_interned_data()) {
+      for (const auto& name : packet.interned_data().debug_annotation_names()) {
+        interned_debug_annotation_names[name.iid()] = name.name();
+      }
+    }
+
+    if (packet.has_track_event()) {
+      const auto& track_event = packet.track_event();
+
+      // Build packet description
+      std::string description;
+      
+      // Add event type
+      switch (track_event.type()) {
+        case protos::gen::TrackEvent::TYPE_INSTANT:
+          description = "instant";
+          break;
+        case protos::gen::TrackEvent::TYPE_SLICE_BEGIN:
+          description = "begin";
+          break;
+        case protos::gen::TrackEvent::TYPE_SLICE_END:
+          description = "end";
+          break;
+        default:
+          description = "unknown";
+          break;
+      }
+
+      // Add name if present
+      if (track_event.has_name()) {
+        description += " name=" + track_event.name();
+      }
+
+      // Add timestamp
+      if (packet.has_timestamp()) {
+        description += " ts=" + std::to_string(packet.timestamp());
+      }
+
+      // Add track ID
+      uint64_t track_uuid = 0;
+      if (track_event.has_track_uuid()) {
+        track_uuid = track_event.track_uuid();
+      }
+      description += " track_id=" + std::to_string(track_uuid);
+
+      // Add arguments if present
+      if (track_event.debug_annotations_size() > 0) {
+        description += " args=(";
+        bool first = true;
+        for (const auto& annotation : track_event.debug_annotations()) {
+          if (!first) {
+            description += ", ";
+          }
+          first = false;
+
+          // Get annotation name
+          std::string ann_name;
+          if (annotation.has_name_iid()) {
+            auto it = interned_debug_annotation_names.find(annotation.name_iid());
+            if (it != interned_debug_annotation_names.end()) {
+              ann_name = it->second;
+            }
+          } else if (annotation.has_name()) {
+            ann_name = annotation.name();
+          }
+
+          description += ann_name + "=";
+
+          // Get annotation value
+          if (annotation.has_int_value()) {
+            description += std::to_string(annotation.int_value());
+          } else if (annotation.has_string_value()) {
+            description += annotation.string_value();
+          }
+        }
+        description += ")";
+      }
+      
+      packet_descriptions.push_back(description);
+    }
+  }
+  
+  return packet_descriptions;
+}
+
 TEST(SyntheticTrackEventWriterTest, BasicFunctionality) {
   SyntheticTrackEventWriter writer;
 
@@ -64,24 +157,13 @@ TEST(SyntheticTrackEventWriterTest, BasicFunctionality) {
   EXPECT_TRUE(
       parsed_trace.ParseFromArray(trace_data.data(), trace_data.size()));
 
-  // Build interned name map as we process packets
-  std::map<uint64_t, std::string> interned_debug_annotation_names;
-
-  // Collect track descriptors and packet descriptions
+  // Collect track descriptors
   std::vector<std::string> track_descriptors;
-  std::vector<std::string> packet_descriptions;
 
   for (const auto& packet : parsed_trace.packet()) {
     // Assert that incremental state is not cleared
     EXPECT_FALSE(packet.sequence_flags() &
                  protos::gen::TracePacket::SEQ_INCREMENTAL_STATE_CLEARED);
-
-    // Update interned data
-    if (packet.has_interned_data()) {
-      for (const auto& name : packet.interned_data().debug_annotation_names()) {
-        interned_debug_annotation_names[name.iid()] = name.name();
-      }
-    }
 
     // Check for track descriptors
     if (packet.has_track_descriptor()) {
@@ -100,70 +182,10 @@ TEST(SyntheticTrackEventWriterTest, BasicFunctionality) {
       }
       track_descriptors.push_back(desc);
     }
-
-    if (packet.has_track_event()) {
-      const auto& track_event = packet.track_event();
-
-      // Check event type
-      EXPECT_EQ(track_event.type(), protos::gen::TrackEvent::TYPE_INSTANT);
-
-      // Collect event info for description
-      std::string event_name;
-      if (track_event.has_name()) {
-        event_name = track_event.name();
-      }
-
-      uint64_t timestamp = 0;
-      if (packet.has_timestamp()) {
-        timestamp = packet.timestamp();
-      }
-
-      uint64_t track_uuid = 0;
-      if (track_event.has_track_uuid()) {
-        track_uuid = track_event.track_uuid();
-      }
-
-      // Build packet description.
-      std::string description = "instant";
-      description += " name=" + event_name;
-      description += " ts=" + std::to_string(timestamp);
-      description += " track_id=" + std::to_string(track_uuid);
-
-      if (track_event.debug_annotations_size() > 0) {
-        description += " args=(";
-        bool first = true;
-        for (const auto& annotation : track_event.debug_annotations()) {
-          if (!first) {
-            description += ", ";
-          }
-          first = false;
-
-          // Get annotation name
-          std::string ann_name;
-          if (annotation.has_name_iid()) {
-            auto it =
-                interned_debug_annotation_names.find(annotation.name_iid());
-            if (it != interned_debug_annotation_names.end()) {
-              ann_name = it->second;
-            }
-          } else if (annotation.has_name()) {
-            ann_name = annotation.name();
-          }
-
-          description += ann_name + "=";
-
-          // Get annotation value
-          if (annotation.has_int_value()) {
-            description += std::to_string(annotation.int_value());
-          } else if (annotation.has_string_value()) {
-            description += annotation.string_value();
-          }
-        }
-        description += ")";
-      }
-      packet_descriptions.push_back(description);
-    }
   }
+
+  // Get packet descriptions using the helper function
+  std::vector<std::string> packet_descriptions = GetPacketDescriptions(parsed_trace);
 
   // Verify track descriptors are written for custom tracks
   EXPECT_THAT(
@@ -182,6 +204,37 @@ TEST(SyntheticTrackEventWriterTest, BasicFunctionality) {
                       " args=(arg1=123, arg2=hello world)",
                   "instant name=EventWithLambda ts=3000 track_id=" +
                       std::to_string(track2.uuid) + " args=(custom_arg=456)"));
+}
+
+TEST(SyntheticTrackEventWriterTest, BeginEndEvents) {
+  SyntheticTrackEventWriter writer;
+
+  // Create a track for the slice
+  NamedTrack slice_track("SliceTrack");
+
+  // Write begin and end events
+  writer.begin("MySlice", slice_track, 1000, "begin_arg", 42);
+  writer.end(slice_track, 2000, "end_arg", "done");
+
+  // Get the serialized trace
+  auto trace_data = writer.GetSerializedTrace();
+  EXPECT_GT(trace_data.size(), 0u);
+
+  // Parse the trace to verify contents
+  protos::gen::Trace parsed_trace;
+  EXPECT_TRUE(
+      parsed_trace.ParseFromArray(trace_data.data(), trace_data.size()));
+
+  // Get packet descriptions using the helper function
+  std::vector<std::string> packet_descriptions = GetPacketDescriptions(parsed_trace);
+
+  // Verify packet descriptions
+  EXPECT_THAT(packet_descriptions,
+              ::testing::ElementsAre(
+                  "begin name=MySlice ts=1000 track_id=" + 
+                      std::to_string(slice_track.uuid) + " args=(begin_arg=42)",
+                  "end ts=2000 track_id=" + 
+                      std::to_string(slice_track.uuid) + " args=(end_arg=done)"));
 }
 
 }  // namespace

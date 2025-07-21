@@ -63,6 +63,17 @@ class PERFETTO_EXPORT_COMPONENT SyntheticTrackEventWriter {
                Timestamp timestamp,
                Args&&... args);
 
+  template <typename TrackType, typename... Args>
+  void begin(std::string_view name,
+             TrackType&& track,
+             Timestamp timestamp,
+             Args&&... args);
+
+  template <typename TrackType, typename... Args>
+  void end(TrackType&& track,
+           Timestamp timestamp,
+           Args&&... args);
+
   // Get the written trace data
   std::vector<uint8_t> GetSerializedTrace() const;
 
@@ -71,6 +82,7 @@ class PERFETTO_EXPORT_COMPONENT SyntheticTrackEventWriter {
       std::string_view name,
       const Track& track,
       Timestamp timestamp,
+      protos::pbzero::TrackEvent::Type event_type,
       std::function<void(protos::pbzero::TrackDescriptor*)> track_serializer,
       std::function<void(EventContext)> args_writer);
 
@@ -90,6 +102,40 @@ void SyntheticTrackEventWriter::instant(std::string_view name,
                                         Args&&... args) {
   WriteTrackEventPacket(
       name, track, timestamp,
+      protos::pbzero::TrackEvent::TYPE_INSTANT,
+      [&track](protos::pbzero::TrackDescriptor* desc) {
+        track.Serialize(desc);
+      },
+      [&](EventContext ctx) {
+        internal::WriteTrackEventArgs(std::move(ctx),
+                                      std::forward<Args>(args)...);
+      });
+}
+
+template <typename TrackType, typename... Args>
+void SyntheticTrackEventWriter::begin(std::string_view name,
+                                      TrackType&& track,
+                                      Timestamp timestamp,
+                                      Args&&... args) {
+  WriteTrackEventPacket(
+      name, track, timestamp,
+      protos::pbzero::TrackEvent::TYPE_SLICE_BEGIN,
+      [&track](protos::pbzero::TrackDescriptor* desc) {
+        track.Serialize(desc);
+      },
+      [&](EventContext ctx) {
+        internal::WriteTrackEventArgs(std::move(ctx),
+                                      std::forward<Args>(args)...);
+      });
+}
+
+template <typename TrackType, typename... Args>
+void SyntheticTrackEventWriter::end(TrackType&& track,
+                                    Timestamp timestamp,
+                                    Args&&... args) {
+  WriteTrackEventPacket(
+      "", track, timestamp,  // Empty name for end events
+      protos::pbzero::TrackEvent::TYPE_SLICE_END,
       [&track](protos::pbzero::TrackDescriptor* desc) {
         track.Serialize(desc);
       },

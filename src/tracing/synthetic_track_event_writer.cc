@@ -47,6 +47,7 @@ void SyntheticTrackEventWriter::WriteTrackEventPacket(
     std::string_view name,
     const Track& track,
     Timestamp timestamp,
+    protos::pbzero::TrackEvent::Type event_type,
     std::function<void(protos::pbzero::TrackDescriptor*)> track_serializer,
     std::function<void(EventContext)> args_writer) {
   // We need to write each packet as a field in a Trace message
@@ -79,11 +80,13 @@ void SyntheticTrackEventWriter::WriteTrackEventPacket(
     track_event->set_track_uuid(track.uuid);
   }
 
-  // Set the event type to instant
-  track_event->set_type(protos::pbzero::TrackEvent::TYPE_INSTANT);
+  // Set the event type
+  track_event->set_type(event_type);
 
-  // Set the event name
-  track_event->set_name(name.data(), name.size());
+  // Set the event name (skip for end events)
+  if (!name.empty()) {
+    track_event->set_name(name.data(), name.size());
+  }
 
   // Create an EventContext using the TracePacketHandle constructor
   if (args_writer) {
