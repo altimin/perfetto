@@ -54,7 +54,7 @@ std::vector<std::string> GetPacketDescriptions(
 
       // Build packet description
       std::string description;
-      
+
       // Add event type
       switch (track_event.type()) {
         case protos::gen::TrackEvent::TYPE_INSTANT:
@@ -101,7 +101,8 @@ std::vector<std::string> GetPacketDescriptions(
           // Get annotation name
           std::string ann_name;
           if (annotation.has_name_iid()) {
-            auto it = interned_debug_annotation_names.find(annotation.name_iid());
+            auto it =
+                interned_debug_annotation_names.find(annotation.name_iid());
             if (it != interned_debug_annotation_names.end()) {
               ann_name = it->second;
             }
@@ -120,11 +121,11 @@ std::vector<std::string> GetPacketDescriptions(
         }
         description += ")";
       }
-      
+
       packet_descriptions.push_back(description);
     }
   }
-  
+
   return packet_descriptions;
 }
 
@@ -185,7 +186,8 @@ TEST(SyntheticTrackEventWriterTest, BasicFunctionality) {
   }
 
   // Get packet descriptions using the helper function
-  std::vector<std::string> packet_descriptions = GetPacketDescriptions(parsed_trace);
+  std::vector<std::string> packet_descriptions =
+      GetPacketDescriptions(parsed_trace);
 
   // Verify track descriptors are written for custom tracks
   EXPECT_THAT(
@@ -226,15 +228,16 @@ TEST(SyntheticTrackEventWriterTest, BeginEndEvents) {
       parsed_trace.ParseFromArray(trace_data.data(), trace_data.size()));
 
   // Get packet descriptions using the helper function
-  std::vector<std::string> packet_descriptions = GetPacketDescriptions(parsed_trace);
+  std::vector<std::string> packet_descriptions =
+      GetPacketDescriptions(parsed_trace);
 
   // Verify packet descriptions
   EXPECT_THAT(packet_descriptions,
               ::testing::ElementsAre(
-                  "begin name=MySlice ts=1000 track_id=" + 
+                  "begin name=MySlice ts=1000 track_id=" +
                       std::to_string(slice_track.uuid) + " args=(begin_arg=42)",
-                  "end ts=2000 track_id=" + 
-                      std::to_string(slice_track.uuid) + " args=(end_arg=done)"));
+                  "end ts=2000 track_id=" + std::to_string(slice_track.uuid) +
+                      " args=(end_arg=done)"));
 }
 
 }  // namespace

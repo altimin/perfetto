@@ -70,9 +70,7 @@ class PERFETTO_EXPORT_COMPONENT SyntheticTrackEventWriter {
              Args&&... args);
 
   template <typename TrackType, typename... Args>
-  void end(TrackType&& track,
-           Timestamp timestamp,
-           Args&&... args);
+  void end(TrackType&& track, Timestamp timestamp, Args&&... args);
 
   // Get the written trace data
   std::vector<uint8_t> GetSerializedTrace() const;
@@ -101,8 +99,7 @@ void SyntheticTrackEventWriter::instant(std::string_view name,
                                         Timestamp timestamp,
                                         Args&&... args) {
   WriteTrackEventPacket(
-      name, track, timestamp,
-      protos::pbzero::TrackEvent::TYPE_INSTANT,
+      name, track, timestamp, protos::pbzero::TrackEvent::TYPE_INSTANT,
       [&track](protos::pbzero::TrackDescriptor* desc) {
         track.Serialize(desc);
       },
@@ -118,8 +115,7 @@ void SyntheticTrackEventWriter::begin(std::string_view name,
                                       Timestamp timestamp,
                                       Args&&... args) {
   WriteTrackEventPacket(
-      name, track, timestamp,
-      protos::pbzero::TrackEvent::TYPE_SLICE_BEGIN,
+      name, track, timestamp, protos::pbzero::TrackEvent::TYPE_SLICE_BEGIN,
       [&track](protos::pbzero::TrackDescriptor* desc) {
         track.Serialize(desc);
       },
